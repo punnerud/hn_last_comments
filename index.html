@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HN Discussion Timeline</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f6f6ef;
+        }
+
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ff6600;
+        }
+
+        .comment {
+            position: relative;
+            margin: 20px 0;
+            padding-left: 80px;
+        }
+
+        .time-marker {
+            position: absolute;
+            left: 44px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ff6600;
+        }
+
+        .level-indicator {
+            position: absolute;
+            left: 10px;
+            color: #666;
+            font-size: 1.2em;
+            letter-spacing: 2px;
+        }
+
+        .child-comments {
+            margin-left: 20px;
+            border-left: 2px solid #eee;
+        }
+
+        .comment-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .author {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .timestamp {
+            color: #828282;
+            font-size: 0.8em;
+        }
+
+        .text {
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .indent {
+            margin-left: 20px;
+            border-left: 2px solid #eee;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .comment-controls {
+            float: right;
+            font-size: 0.8em;
+        }
+
+        .hide-button {
+            color: #666;
+            cursor: pointer;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .hidden-comment {
+            display: none;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .story-title {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .story-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .story-title a:hover {
+            text-decoration: underline;
+        }
+
+        .filter-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .read-button {
+            color: #666;
+            cursor: pointer;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .comment-link {
+            margin-left: 10px;
+            color: #ff6600;
+            text-decoration: none;
+        }
+
+        .comment-link:hover {
+            text-decoration: underline;
+        }
+
+        .hidden-read {
+            display: none;
+        }
+
+        .context-button {
+            color: #666;
+            cursor: pointer;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: 10px;
+            transition: opacity 0.2s;
+        }
+
+        .context-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .context {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f6f6ef;
+            border-left: 2px solid #ff6600;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .context-item {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .context-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .controls form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .controls input[type="url"] {
+            font-family: inherit;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .controls button[type="submit"] {
+            background: #ff6600;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .controls button[type="submit"]:hover {
+            background: #ff7711;
+        }
+
+        #loading-counter {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div class="filter-switch">
+            <label>
+                <input type="checkbox" id="show-read" onchange="toggleReadComments()">
+                Show read comments
+            </label>
+        </div>
+    </div>
+    <div id="loading">
+        Loading discussion...
+        <div id="loading-counter"></div>
+    </div>
+    <div id="timeline" class="timeline"></div>
+
+    <script>
+        function getHNItemId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hnUrl = urlParams.get('hn_url');
+            
+            if (!hnUrl) {
+                return '42276596'; // default ID
+            }
+            
+            try {
+                // Try both decoded and encoded URL
+                let url;
+                try {
+                    url = new URL(hnUrl);
+                } catch {
+                    url = new URL(decodeURIComponent(hnUrl));
+                }
+                
+                if (!url.hostname.includes('ycombinator.com')) {
+                    throw new Error('Not a Hacker News URL');
+                }
+                
+                const id = url.searchParams.get('id');
+                if (!id) {
+                    throw new Error('No item ID found in URL');
+                }
+                
+                return id;
+            } catch (error) {
+                console.error('Error parsing URL:', error);
+                return '42276596'; // fallback to default
+            }
+        }
+        
+        const ITEM_ID = getHNItemId();
+
+        const timelineEl = document.getElementById('timeline');
+        const loadingEl = document.getElementById('loading');
+        
+        // Add URL input form
+        document.querySelector('.controls').innerHTML += `
+            <div style="margin-top: 10px;">
+                <form onsubmit="changeDiscussion(event)">
+                    <input type="url" 
+                           id="hn-url" 
+                           placeholder="Enter Hacker News discussion URL"
+                           style="width: 300px; padding: 5px;"
+                           pattern="https://.*?ycombinator\.com/.*"
+                           title="Please enter a valid Hacker News URL">
+                    <button type="submit">Load Discussion</button>
+                </form>
+            </div>
+        `;
+        
+        function changeDiscussion(event) {
+            event.preventDefault();
+            const url = document.getElementById('hn-url').value;
+            if (url) {
+                // Don't encode the URL for better readability in the address bar
+                window.location.href = `${window.location.pathname}?hn_url=${url}`;
+            }
+        }
+
+        // Add cookie utilities
+        function setCookie(name, value, days) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        // Rename cookie name to match new functionality
+        function getReadComments() {
+            const read = getCookie('read_comments');
+            return read ? JSON.parse(read) : [];
+        }
+
+        function saveReadComments(readIds) {
+            setCookie('read_comments', JSON.stringify(readIds), 30);
+        }
+
+        function toggleReadComments() {
+            const showRead = document.getElementById('show-read').checked;
+            const comments = document.querySelectorAll('.comment');
+            
+            comments.forEach(comment => {
+                if (comment.classList.contains('hidden-read')) {
+                    comment.style.display = showRead ? 'block' : 'none';
+                } else {
+                    comment.style.display = 'block';
+                }
+            });
+        }
+
+        async function fetchItem(id) {
+            const response = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+            return response.json();
+        }
+
+        function timeSince(timestamp) {
+            const seconds = Math.floor((new Date() - timestamp * 1000) / 1000);
+            const intervals = {
+                year: 31536000,
+                month: 2592000,
+                week: 604800,
+                day: 86400,
+                hour: 3600,
+                minute: 60
+            };
+
+            for (let [unit, secondsInUnit] of Object.entries(intervals)) {
+                const interval = Math.floor(seconds / secondsInUnit);
+                if (interval >= 1) {
+                    return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
+                }
+            }
+            return 'just now';
+        }
+
+        async function getCommentContext(comment) {
+            let contextChain = [];
+            let currentComment = comment;
+            
+            while (currentComment.parent && currentComment.parent !== ITEM_ID) {
+                try {
+                    currentComment = await fetchItem(currentComment.parent);
+                    contextChain.unshift(currentComment);
+                } catch (error) {
+                    console.error('Error fetching context:', error);
+                    break;
+                }
+            }
+            
+            return contextChain;
+        }
+
+        async function showContext(commentId) {
+            // Prevent multiple simultaneous calls
+            if (window.isLoadingContext) return;
+            window.isLoadingContext = true;
+
+            const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
+            let contextEl = commentEl.querySelector('.context');
+            const contextButton = commentEl.querySelector('.context-button');
+            
+            if (contextEl) {
+                // Toggle existing context
+                contextEl.style.display = contextEl.style.display === 'none' ? 'block' : 'none';
+                contextButton.textContent = contextEl.style.display === 'none' ? 'show context' : 'hide context';
+                window.isLoadingContext = false;
+                return;
+            }
+
+            contextButton.textContent = 'loading...';
+            contextButton.disabled = true;  // Prevent clicking while loading
+
+            const comment = await fetchItem(commentId);
+            const contextChain = await getCommentContext(comment);
+            
+            if (contextChain.length === 0) {
+                contextButton.textContent = 'show context';
+                contextButton.disabled = false;
+                window.isLoadingContext = false;
+                return;
+            }
+
+            contextEl = document.createElement('div');
+            contextEl.className = 'context';
+            contextEl.style.display = 'block';  // Ensure it's visible when first created
+            
+            const contextHtml = contextChain.map(ctx => `
+                <div class="context-item">
+                    <div class="author">
+                        <strong>${ctx.by}</strong>
+                        <span class="timestamp">${timeSince(ctx.time)}</span>
+                        <a href="https://news.ycombinator.com/item?id=${ctx.id}" 
+                           class="comment-link" 
+                           target="_blank">↗</a>
+                    </div>
+                    <div class="text">${ctx.text || ''}</div>
+                </div>
+            `).join('');
+            
+            contextEl.innerHTML = `
+                <div class="context-header">Context (${contextChain.length} parent${contextChain.length === 1 ? '' : 's'}):</div>
+                ${contextHtml}
+            `;
+            
+            const commentContent = commentEl.querySelector('.comment-content');
+            // Use a small timeout to ensure DOM updates are processed
+            setTimeout(() => {
+                commentContent.appendChild(contextEl);
+                contextButton.textContent = 'hide context';
+                contextButton.disabled = false;
+                window.isLoadingContext = false;
+            }, 50);
+        }
+
+        async function fetchCommentsRecursively(commentIds, level) {
+            if (!commentIds || commentIds.length === 0) return [];
+            
+            const comments = [];
+            const readComments = getReadComments();
+            
+            for (const id of commentIds) {
+                const comment = await fetchItem(id);
+                if (comment && !comment.deleted && !comment.dead && !readComments.includes(comment.id)) {
+                    comment.level = level;
+                    comments.push(comment);
+                    window.totalLoadedComments++;
+                    document.getElementById('loading-counter').textContent = 
+                        `Loaded ${window.totalLoadedComments} comments...`;
+                    
+                    if (comment.kids) {
+                        const childComments = await fetchCommentsRecursively(comment.kids, level + 1);
+                        comments.push(...childComments);
+                    }
+                }
+            }
+            return comments;
+        }
+
+        function createCommentElement(comment, level = 0) {
+            const div = document.createElement('div');
+            div.className = 'comment';
+            div.dataset.commentId = comment.id;
+            
+            const readComments = getReadComments();
+            if (readComments.includes(comment.id)) {
+                div.classList.add('hidden-read');
+            }
+
+            const dots = '.'.repeat(level);
+
+            div.innerHTML = `
+                <div class="time-marker"></div>
+                <div class="level-indicator">${dots}</div>
+                <div class="comment-content">
+                    <div class="author">
+                        <strong>${comment.by}</strong>
+                        <span class="timestamp">${timeSince(comment.time)}</span>
+                        <div class="comment-controls">
+                            <button class="read-button" onclick="toggleRead('${comment.id}')">
+                                ${readComments.includes(comment.id) ? 'unread' : 'mark read'}
+                            </button>
+                            <button class="context-button" onclick="event.stopPropagation(); showContext('${comment.id}')">
+                                show context
+                            </button>
+                            <a href="https://news.ycombinator.com/item?id=${comment.id}" 
+                               class="comment-link" 
+                               target="_blank">↗</a>
+                        </div>
+                    </div>
+                    <div class="text">${comment.text || ''}</div>
+                </div>
+            `;
+
+            return div;
+        }
+
+        function toggleRead(commentId) {
+            const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
+            const readButton = commentEl.querySelector('.read-button');
+            const readComments = getReadComments();
+            const showRead = document.getElementById('show-read').checked;
+            
+            if (commentEl.classList.contains('hidden-read')) {
+                commentEl.classList.remove('hidden-read');
+                readButton.textContent = 'mark read';
+                const index = readComments.indexOf(commentId);
+                if (index > -1) {
+                    readComments.splice(index, 1);
+                }
+                commentEl.style.display = 'block';
+            } else {
+                commentEl.classList.add('hidden-read');
+                readButton.textContent = 'unread';
+                if (!readComments.includes(commentId)) {
+                    readComments.push(commentId);
+                }
+                if (!showRead) {
+                    commentEl.style.display = 'none';
+                }
+            }
+            
+            saveReadComments(readComments);
+        }
+
+        async function loadDiscussion() {
+            try {
+                const story = await fetchItem(ITEM_ID);
+                const readComments = getReadComments();
+                const unreadCount = story.descendants - readComments.length;
+                document.getElementById('loading-counter').textContent = 
+                    `Found ${unreadCount} unread comments, starting to load...`;
+                window.totalLoadedComments = 0;
+                const comments = await fetchCommentsRecursively(story.kids, 1);
+                
+                // Add story title
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'story-title';
+                titleDiv.innerHTML = `
+                    <span style="color: #666; font-size: 0.9em;">Now showing comments for:</span><br>
+                    <a href="${story.url || `https://news.ycombinator.com/item?id=${story.id}`}" target="_blank">
+                        ${story.title}
+                    </a>
+                `;
+                document.querySelector('.controls').appendChild(titleDiv);
+
+                comments.sort((a, b) => b.time - a.time);
+                loadingEl.style.display = 'none';
+                
+                comments.forEach(comment => {
+                    const commentEl = createCommentElement(comment, comment.level);
+                    timelineEl.appendChild(commentEl);
+                });
+
+                // Initial visibility setup
+                const showRead = document.getElementById('show-read').checked;
+                if (!showRead) {
+                    document.querySelectorAll('.hidden-read').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                }
+            } catch (error) {
+                loadingEl.textContent = 'Error loading discussion. Please try again.';
+                console.error('Error:', error);
+            }
+        }
+
+        loadDiscussion();
+    </script>
+</body>
+</html> 
