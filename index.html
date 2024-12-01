@@ -458,7 +458,7 @@
             
             for (const id of commentIds) {
                 const comment = await fetchItem(id);
-                if (comment && !comment.deleted && !comment.dead && !readComments.includes(comment.id)) {
+                if (comment && !comment.deleted && !comment.dead) {
                     comment.level = level;
                     comments.push(comment);
                     window.totalLoadedComments++;
@@ -544,9 +544,12 @@
             try {
                 const story = await fetchItem(ITEM_ID);
                 const readComments = getReadComments();
-                const unreadCount = story.descendants - readComments.length;
+                const totalComments = story.descendants || 0;
+                const unreadCount = totalComments - readComments.length;
+                
                 document.getElementById('loading-counter').textContent = 
-                    `Found ${unreadCount} unread comments, starting to load...`;
+                    `Found ${unreadCount} unread comments out of ${totalComments} total, loading...`;
+                
                 window.totalLoadedComments = 0;
                 const comments = await fetchCommentsRecursively(story.kids, 1);
                 
@@ -564,18 +567,23 @@
                 comments.sort((a, b) => b.time - a.time);
                 loadingEl.style.display = 'none';
                 
+                // Create and add all comments
                 comments.forEach(comment => {
                     const commentEl = createCommentElement(comment, comment.level);
+                    if (readComments.includes(comment.id)) {
+                        commentEl.classList.add('hidden-read');
+                        // Set initial display based on show-read checkbox
+                        if (!document.getElementById('show-read').checked) {
+                            commentEl.style.display = 'none';
+                        }
+                    }
                     timelineEl.appendChild(commentEl);
                 });
 
-                // Initial visibility setup
-                const showRead = document.getElementById('show-read').checked;
-                if (!showRead) {
-                    document.querySelectorAll('.hidden-read').forEach(el => {
-                        el.style.display = 'none';
-                    });
-                }
+                // Update loading message with final counts
+                const finalUnread = comments.filter(c => !readComments.includes(c.id)).length;
+                document.getElementById('loading-counter').textContent = 
+                    `Loaded ${finalUnread} unread comments out of ${comments.length} total`;
             } catch (error) {
                 loadingEl.textContent = 'Error loading discussion. Please try again.';
                 console.error('Error:', error);
