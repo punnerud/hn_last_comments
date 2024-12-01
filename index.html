@@ -6,7 +6,7 @@
     <title>HN Discussion Timeline</title>
     <script>
         // Version tracking
-        const APP_VERSION = '1.0.5';
+        const APP_VERSION = '1.0.6';
         console.log('HN Discussion Timeline v' + APP_VERSION);
 
         // Add persistent debug functionality
@@ -631,14 +631,43 @@
                     timelineEl.appendChild(commentEl);
                 });
 
-                // Update loading message with final counts
-                const unreadComments = comments.filter(c => !readComments.includes(c.id));
-                if (DEBUG) console.log('Final counts:', {
-                    total: comments.length,
-                    unread: unreadComments.length,
-                    read: comments.length - unreadComments.length
+                // Update detailed debug logging for comment filtering
+                if (DEBUG) {
+                    console.log('=== Comment Filtering Debug ===');
+                    console.log('Read comments from cookie:', readComments);
+                    console.log('Total comments loaded:', comments.length);
+                    
+                    // Log each comment's read status
+                    comments.forEach(c => {
+                        console.log('Comment:', {
+                            id: c.id,
+                            isRead: readComments.includes(c.id),
+                            by: c.by,
+                            text: c.text?.substring(0, 50) + '...' // First 50 chars of comment
+                        });
+                    });
+                }
+
+                const unreadComments = comments.filter(c => {
+                    const isUnread = !readComments.includes(c.id);
+                    if (DEBUG) {
+                        console.log(`Filtering comment ${c.id}: ${isUnread ? 'UNREAD' : 'READ'}`);
+                    }
+                    return isUnread;
                 });
-                
+
+                if (DEBUG) {
+                    console.log('=== Filtering Results ===');
+                    console.log('Final counts:', {
+                        total: comments.length,
+                        unread: unreadComments.length,
+                        read: comments.length - unreadComments.length,
+                        readIds: readComments,
+                        unreadIds: unreadComments.map(c => c.id)
+                    });
+                    console.log('=== End Filtering Debug ===');
+                }
+
                 document.getElementById('loading-counter').textContent = 
                     `Found ${unreadComments.length} unread comments out of ${comments.length} total`;
             } catch (error) {
