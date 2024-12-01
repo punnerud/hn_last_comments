@@ -6,7 +6,7 @@
     <title>HN Discussion Timeline</title>
     <script>
         // Version tracking
-        const APP_VERSION = '1.0.2';
+        const APP_VERSION = '1.0.3';
         console.log('HN Discussion Timeline v' + APP_VERSION);
     </script>
     <style>
@@ -522,20 +522,20 @@
             const readComments = getReadComments();
             const showRead = document.getElementById('show-read').checked;
             
-            if (commentEl.classList.contains('hidden-read')) {
-                commentEl.classList.remove('hidden-read');
-                readButton.textContent = 'mark read';
+            if (readComments.includes(commentId)) {
+                // Comment is currently read - mark as unread
                 const index = readComments.indexOf(commentId);
                 if (index > -1) {
                     readComments.splice(index, 1);
                 }
+                commentEl.classList.remove('hidden-read');
+                readButton.textContent = 'mark read';
                 commentEl.style.display = 'block';
             } else {
+                // Comment is currently unread - mark as read
+                readComments.push(commentId);
                 commentEl.classList.add('hidden-read');
                 readButton.textContent = 'unread';
-                if (!readComments.includes(commentId)) {
-                    readComments.push(commentId);
-                }
                 if (!showRead) {
                     commentEl.style.display = 'none';
                 }
@@ -570,13 +570,13 @@
                 comments.sort((a, b) => b.time - a.time);
                 loadingEl.style.display = 'none';
                 
-                // Create and add all comments
+                // Create and add all comments, properly handling read state
+                const showRead = document.getElementById('show-read').checked;
                 comments.forEach(comment => {
                     const commentEl = createCommentElement(comment, comment.level);
                     if (readComments.includes(comment.id)) {
                         commentEl.classList.add('hidden-read');
-                        // Set initial display based on show-read checkbox
-                        if (!document.getElementById('show-read').checked) {
+                        if (!showRead) {
                             commentEl.style.display = 'none';
                         }
                     }
