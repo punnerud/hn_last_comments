@@ -2,6 +2,10 @@
 
 A clean, timeline-based viewer for Hacker News discussions that helps you track which comments you've read.
 
+## Live Demo
+
+Visit the live version at: https://punnerud.github.io/hn_last_comments/
+
 ## Features
 
 - Timeline visualization of comments
@@ -17,7 +21,7 @@ A clean, timeline-based viewer for Hacker News discussions that helps you track 
 
 ### Direct Access
 
-1. Open `index.html` in your browser
+1. Visit https://punnerud.github.io/hn_last_comments/
 2. Enter a Hacker News discussion URL in the input field
 3. Click "Load Discussion" to view the comments
 
