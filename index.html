@@ -8,6 +8,37 @@
         // Version tracking
         const APP_VERSION = '1.0.3';
         console.log('HN Discussion Timeline v' + APP_VERSION);
+
+        // Add persistent debug functionality
+        let DEBUG = false;
+        function setDebugCookie(enabled) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + 24 * 60 * 60 * 1000); // 1 day
+            document.cookie = `debug_mode=${enabled};expires=${expires.toUTCString()};path=/`;
+        }
+
+        function getDebugCookie() {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; debug_mode=`);
+            if (parts.length === 2) return parts.pop().split(';').shift() === 'true';
+            return false;
+        }
+
+        // Initialize debug mode from cookie
+        DEBUG = getDebugCookie();
+        if (DEBUG) console.log('Debug mode initialized from cookie');
+
+        function activateDebug() {
+            DEBUG = true;
+            setDebugCookie(true);
+            console.log('Debug mode activated and saved to cookie');
+        }
+
+        function deactivateDebug() {
+            DEBUG = false;
+            setDebugCookie(false);
+            console.log('Debug mode deactivated and saved to cookie');
+        }
     </script>
     <style>
         body {
@@ -319,11 +350,13 @@
             const expires = new Date();
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+            if (DEBUG) console.log('Setting cookie:', { name, value, days, expires: expires.toUTCString() });
         }
 
         function getCookie(name) {
             const value = `; ${document.cookie}`;
             const parts = value.split(`; ${name}=`);
+            if (DEBUG) console.log('Getting cookie:', { name, cookieString: document.cookie, parts });
             if (parts.length === 2) return parts.pop().split(';').shift();
             return null;
         }
@@ -331,10 +364,13 @@
         // Rename cookie name to match new functionality
         function getReadComments() {
             const read = getCookie('read_comments');
-            return read ? JSON.parse(read) : [];
+            const readArray = read ? JSON.parse(read) : [];
+            if (DEBUG) console.log('Retrieved read comments:', { raw: read, parsed: readArray });
+            return readArray;
         }
 
         function saveReadComments(readIds) {
+            if (DEBUG) console.log('Saving read comments:', readIds);
             setCookie('read_comments', JSON.stringify(readIds), 30);
         }
 
@@ -517,13 +553,14 @@
         }
 
         function toggleRead(commentId) {
+            if (DEBUG) console.log('Toggling read state for comment:', commentId);
             const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
             const readButton = commentEl.querySelector('.read-button');
             const readComments = getReadComments();
             const showRead = document.getElementById('show-read').checked;
             
             if (readComments.includes(commentId)) {
-                // Comment is currently read - mark as unread
+                if (DEBUG) console.log('Marking comment as unread:', commentId);
                 const index = readComments.indexOf(commentId);
                 if (index > -1) {
                     readComments.splice(index, 1);
@@ -532,7 +569,7 @@
                 readButton.textContent = 'mark read';
                 commentEl.style.display = 'block';
             } else {
-                // Comment is currently unread - mark as read
+                if (DEBUG) console.log('Marking comment as read:', commentId);
                 readComments.push(commentId);
                 commentEl.classList.add('hidden-read');
                 readButton.textContent = 'unread';
@@ -542,6 +579,7 @@
             }
             
             saveReadComments(readComments);
+            if (DEBUG) console.log('Current read comments after toggle:', readComments);
         }
 
         async function loadDiscussion() {
