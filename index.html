@@ -6,7 +6,7 @@
     <title>HN Discussion Timeline</title>
     <script>
         // Version tracking
-        const APP_VERSION = '1.0.6';
+        const APP_VERSION = '1.0.7';
         console.log('HN Discussion Timeline v' + APP_VERSION);
 
         // Add persistent debug functionality
@@ -364,8 +364,21 @@
         // Rename cookie name to match new functionality
         function getReadComments() {
             const read = getCookie('read_comments');
-            const readArray = read ? JSON.parse(read) : [];
-            if (DEBUG) console.log('Retrieved read comments:', { raw: read, parsed: readArray });
+            let readArray = [];
+            try {
+                readArray = read ? JSON.parse(read) : [];
+                if (DEBUG) {
+                    console.log('=== Read Comments Debug ===');
+                    console.log('Raw cookie value:', read);
+                    console.log('Parsed array:', readArray);
+                    console.log('Array type:', Array.isArray(readArray));
+                    console.log('Sample value type:', typeof readArray[0]);
+                    console.log('=== End Read Comments Debug ===');
+                }
+            } catch (error) {
+                console.error('Error parsing read comments:', error);
+                readArray = [];
+            }
             return readArray;
         }
 
@@ -649,9 +662,16 @@
                 }
 
                 const unreadComments = comments.filter(c => {
-                    const isUnread = !readComments.includes(c.id);
+                    const commentId = c.id.toString(); // Ensure string comparison
+                    const isUnread = !readComments.includes(commentId);
                     if (DEBUG) {
-                        console.log(`Filtering comment ${c.id}: ${isUnread ? 'UNREAD' : 'READ'}`);
+                        console.log('Filtering check:', {
+                            commentId,
+                            commentIdType: typeof commentId,
+                            isInReadComments: readComments.includes(commentId),
+                            readCommentsArray: readComments,
+                            result: isUnread ? 'UNREAD' : 'READ'
+                        });
                     }
                     return isUnread;
                 });
