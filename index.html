@@ -6,7 +6,7 @@
     <title>HN Discussion Timeline</title>
     <script>
         // Version tracking
-        const APP_VERSION = '1.0.0';
+        const APP_VERSION = '1.0.2';
         console.log('HN Discussion Timeline v' + APP_VERSION);
     </script>
     <style>
@@ -459,7 +459,6 @@
             if (!commentIds || commentIds.length === 0) return [];
             
             const comments = [];
-            const readComments = getReadComments();
             
             for (const id of commentIds) {
                 const comment = await fetchItem(id);
@@ -550,10 +549,9 @@
                 const story = await fetchItem(ITEM_ID);
                 const readComments = getReadComments();
                 const totalComments = story.descendants || 0;
-                const unreadCount = totalComments - readComments.length;
                 
                 document.getElementById('loading-counter').textContent = 
-                    `Found ${unreadCount} unread comments out of ${totalComments} total, loading...`;
+                    `Loading ${totalComments} comments...`;
                 
                 window.totalLoadedComments = 0;
                 const comments = await fetchCommentsRecursively(story.kids, 1);
@@ -586,9 +584,9 @@
                 });
 
                 // Update loading message with final counts
-                const finalUnread = comments.filter(c => !readComments.includes(c.id)).length;
+                const unreadComments = comments.filter(c => !readComments.includes(c.id));
                 document.getElementById('loading-counter').textContent = 
-                    `Loaded ${finalUnread} unread comments out of ${comments.length} total`;
+                    `Found ${unreadComments.length} unread comments out of ${comments.length} total`;
             } catch (error) {
                 loadingEl.textContent = 'Error loading discussion. Please try again.';
                 console.error('Error:', error);
