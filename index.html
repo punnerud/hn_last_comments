@@ -6,7 +6,7 @@
     <title>HN Discussion Timeline</title>
     <script>
         // Version tracking
-        const APP_VERSION = '1.0.7';
+        const APP_VERSION = '1.0.8';
         console.log('HN Discussion Timeline v' + APP_VERSION);
 
         // Add persistent debug functionality
@@ -533,13 +533,16 @@
             div.dataset.commentId = comment.id;
             
             const readComments = getReadComments();
-            const isRead = readComments.includes(comment.id);
+            const commentId = comment.id.toString(); // Convert to string for comparison
+            const isRead = readComments.includes(commentId);
             const showRead = document.getElementById('show-read').checked;
             
             if (DEBUG) console.log('Creating comment element:', { 
-                id: comment.id, 
-                isRead, 
-                showRead, 
+                id: comment.id,
+                commentId,
+                readComments,
+                isRead,
+                showRead,
                 shouldHide: isRead && !showRead 
             });
 
@@ -584,9 +587,12 @@
             const readComments = getReadComments();
             const showRead = document.getElementById('show-read').checked;
             
-            if (readComments.includes(commentId)) {
-                if (DEBUG) console.log('Marking comment as unread:', commentId);
-                const index = readComments.indexOf(commentId);
+            // Ensure commentId is string
+            const commentIdStr = commentId.toString();
+            
+            if (readComments.includes(commentIdStr)) {
+                if (DEBUG) console.log('Marking comment as unread:', commentIdStr);
+                const index = readComments.indexOf(commentIdStr);
                 if (index > -1) {
                     readComments.splice(index, 1);
                 }
@@ -594,8 +600,8 @@
                 readButton.textContent = 'mark read';
                 commentEl.style.display = 'block';
             } else {
-                if (DEBUG) console.log('Marking comment as read:', commentId);
-                readComments.push(commentId);
+                if (DEBUG) console.log('Marking comment as read:', commentIdStr);
+                readComments.push(commentIdStr);
                 commentEl.classList.add('hidden-read');
                 readButton.textContent = 'unread';
                 if (!showRead) {
